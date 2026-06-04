@@ -57,17 +57,20 @@ def str2bool(v):
 
 def argparser():
     parser = argparse.ArgumentParser(description='Active Learning - Image Classification')
-    parser.add_argument('--cfg', dest='cfg_file', help='Config file', required=True, type=str)
-    parser.add_argument('--exp-name', help='Experiment Name', required=True, type=str)
-    parser.add_argument('--al', help='AL Method', required=True, type=str)
-    parser.add_argument('--budget', help='Budget Per Round', required=True, type=int)
+    parser.add_argument('--cfg', dest='cfg_file', help='Config file', required=True, type=str)#配置文件路径，定义数据集/模型/训练轮数/AL轮数等基础设置。
+    parser.add_argument('--exp-name', help='Experiment Name', required=True, type=str)#实验名称，用于标识不同实验。
+    parser.add_argument('--al', help='AL Method', required=True, type=str)#AL方法，用于选择AL策略。
+    parser.add_argument('--budget', help='Budget Per Round', required=True, type=int)#每个AL轮的预算，即每次选择样本的数量。
     parser.add_argument('--initial_size', help='Size of the initial random labeled set', default=0, type=int)
-    parser.add_argument('--seed', help='Random seed', default=1, type=int)
-    parser.add_argument('--finetune', help='Whether to continue with existing model between rounds', type=str2bool, default=False)
-    parser.add_argument('--linear_from_features', help='Whether to use a linear layer from self-supervised features', action='store_true')
-    parser.add_argument('--initial_delta', help='Relevant only for ProbCover and DCoM', default=0.6, type=float)
-    parser.add_argument('--k_logistic', default=50, type=int)
-    parser.add_argument('--a_logistic', default=0.8, type=float)
+    parser.add_argument('--seed', help='Random seed', default=1, type=int)#随机种子，用于保证实验可重复性。
+    parser.add_argument('--finetune', help='Whether to continue with existing model between rounds', type=str2bool, default=False)#true表示在AL轮之间继续使用之前训练的模型，false表示从头开始训练。
+    parser.add_argument('--linear_from_features', help='Whether to use a linear layer from self-supervised features', action='store_true')#true表示使用自监督特征进行线性层训练，false表示不使用。
+    parser.add_argument('--feature_seed', help='Seed used to locate pre-extracted .npy feature files. '
+                        'If omitted, uses --seed. Allows all AL seeds to share one embedding.',
+                        default=None, type=int)
+    parser.add_argument('--initial_delta', help='Relevant only for ProbCover and DCoM', default=0.6, type=float)#ProbCover和DCoM的初始delta值。
+    parser.add_argument('--k_logistic', default=50, type=int)#Logistic回归的k值。
+    parser.add_argument('--a_logistic', default=0.8, type=float)#Logistic回归的a值。
 
     return parser
 
@@ -621,6 +624,8 @@ if __name__ == "__main__":
     cfg.ACTIVE_LEARNING.INITIAL_DELTA = args.initial_delta
     cfg.RNG_SEED = args.seed
     cfg.MODEL.LINEAR_FROM_FEATURES = args.linear_from_features
+    if args.feature_seed is not None:
+        cfg.ACTIVE_LEARNING.FEATURE_SEED = args.feature_seed
     cfg.ACTIVE_LEARNING.A_LOGISTIC = args.a_logistic
     cfg.ACTIVE_LEARNING.K_LOGISTIC = args.k_logistic
     main(cfg)

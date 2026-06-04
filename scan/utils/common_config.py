@@ -54,6 +54,15 @@ def get_model(p, pretrain_path=None):
         elif p['train_db_name'] == 'tiny-imagenet':
             from models.resnet_tinyimagenet import resnet18
             backbone = resnet18()
+        elif p['train_db_name'] in ('imagenet', 'isic2019',
+                                     'imagenet_50', 'imagenet_100', 'imagenet_200'):
+            from models.resnet import resnet18
+            backbone = resnet18()
+        elif p['train_db_name'] in ('pathmnist', 'bloodmnist', 'organamnist',
+                                     'chestmnist', 'dermamnist', 'retinamnist'):
+            # 28×28 images — use the CIFAR-style ResNet18 (small-image stem)
+            from models.resnet_cifar import resnet18
+            backbone = resnet18()
 
         else:
             raise NotImplementedError
@@ -143,6 +152,16 @@ def get_train_dataset(p, transform, to_augmented_dataset=False,
         from data.imagenet import ImageNet
         dataset = ImageNet(split='train', transform=transform)
 
+    elif p['train_db_name'] == 'isic2019':
+        from data.isic2019_dataset import ISIC2019
+        dataset = ISIC2019(split='train', transform=transform)
+
+    elif p['train_db_name'] in ('pathmnist', 'bloodmnist', 'organamnist',
+                                 'chestmnist', 'dermamnist', 'retinamnist'):
+        from data.medmnist_dataset import MedMNISTScan
+        dataset = MedMNISTScan(p['train_db_name'], split='train',
+                               transform=transform, download=True)
+
     elif p['train_db_name'] in ['imagenet_50', 'imagenet_100', 'imagenet_200']:
         from data.imagenet import ImageNetSubset
         subset_file = './data/imagenet_subsets/%s.txt' %(p['train_db_name'])
@@ -185,7 +204,17 @@ def get_val_dataset(p, transform=None, to_neighbors_dataset=False):
     elif p['val_db_name'] == 'imagenet':
         from data.imagenet import ImageNet
         dataset = ImageNet(split='val', transform=transform)
-    
+
+    elif p['val_db_name'] == 'isic2019':
+        from data.isic2019_dataset import ISIC2019
+        dataset = ISIC2019(split='test', transform=transform)
+
+    elif p['val_db_name'] in ('pathmnist', 'bloodmnist', 'organamnist',
+                               'chestmnist', 'dermamnist', 'retinamnist'):
+        from data.medmnist_dataset import MedMNISTScan
+        dataset = MedMNISTScan(p['val_db_name'], split='test',
+                               transform=transform, download=True)
+
     elif p['val_db_name'] in ['imagenet_50', 'imagenet_100', 'imagenet_200']:
         from data.imagenet import ImageNetSubset
         subset_file = './data/imagenet_subsets/%s.txt' %(p['val_db_name'])

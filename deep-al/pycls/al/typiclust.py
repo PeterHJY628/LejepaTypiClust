@@ -1,17 +1,24 @@
 import numpy as np
 import pandas as pd
-import faiss
+import torch
 from sklearn.cluster import MiniBatchKMeans, KMeans
 import pycls.datasets.utils as ds_utils
 
 def get_nn(features, num_neighbors):
-    # calculates nearest neighbors on GPU
-    d = features.shape[1]
+    # GPU-only nearest-neighbor search implemented with Torch CUDA.
     features = features.astype(np.float32)
-    cpu_index = faiss.IndexFlatL2(d)
-    gpu_index = faiss.index_cpu_to_all_gpus(cpu_index)
-    gpu_index.add(features)  # add vectors to the index
-    distances, indices = gpu_index.search(features, num_neighbors + 1)
+    if not torch.cuda.is_available():
+        raise RuntimeError("TypiClust requires CUDA for nearest-neighbor search.")
+
+    feats = torch.from_numpy(features).cuda()
+    # Pairwise squared L2 distances on GPU.
+    sq_norms = (feats ** 2).sum(dim=1, keepdim=True)
+    dist_mat = sq_norms + sq_norms.t() - 2.0 * (feats @ feats.t())
+    dist_mat = torch.clamp(dist_mat, min=0.0)
+    k = num_neighbors + 1
+    distances, indices = torch.topk(dist_mat, k=k, dim=1, largest=False, sorted=True)
+    distances = distances.detach().cpu().numpy()
+    indices = indices.detach().cpu().numpy()
     # 0 index is the same sample, dropping it
     return distances[:, 1:], indices[:, 1:]
 
@@ -50,6 +57,9 @@ class TypiClust:
         self.cfg = cfg
         self.ds_name = self.cfg['DATASET']['NAME']
         self.seed = self.cfg['RNG_SEED']
+        # FEATURE_SEED overrides which .npy file is loaded; falls back to RNG_SEED.
+        feature_seed_cfg = self.cfg.get('ACTIVE_LEARNING', {}).get('FEATURE_SEED', None)
+        self.feature_seed = feature_seed_cfg if feature_seed_cfg is not None else self.seed
         self.features = None
         self.clusters = None
         self.lSet = lSet
@@ -61,15 +71,16 @@ class TypiClust:
         num_clusters = min(len(self.lSet) + self.budgetSize, self.MAX_NUM_CLUSTERS)
         print(f'Clustering into {num_clusters} clustering. Scan clustering: {is_scan}')
         if is_scan:
-            fname_dict = {'CIFAR10': f'../../scan/results/cifar-10/scan/features_seed{self.seed}_clusters{num_clusters}.npy',
-                          'CIFAR100': f'../../scan/results/cifar-100/scan/features_seed{self.seed}_clusters{num_clusters}.npy',
-                          'TINYIMAGENET': f'../../scan/results/tiny-imagenet/scan/features_seed{self.seed}_clusters{num_clusters}.npy',
+            fname_dict = {'CIFAR10': f'../../scan/results/cifar-10/scan/features_seed{self.feature_seed}_clusters{num_clusters}.npy',
+                          'CIFAR100': f'../../scan/results/cifar-100/scan/features_seed{self.feature_seed}_clusters{num_clusters}.npy',
+                          'TINYIMAGENET': f'../../scan/results/tiny-imagenet/scan/features_seed{self.feature_seed}_clusters{num_clusters}.npy',
                           }
             fname = fname_dict[self.ds_name]
             self.features = np.load(fname)
             self.clusters = np.load(fname.replace('features', 'probs')).argmax(axis=-1)
         else:
-            self.features = ds_utils.load_features(self.ds_name, self.seed)
+            feature_source = 'lejepa' if self.cfg.ACTIVE_LEARNING.SAMPLING_FN == 'typiclust_lejepa' else 'simclr'
+            self.features = ds_utils.load_features(self.ds_name, self.feature_seed, source=feature_source)
             self.clusters = kmeans(self.features, num_clusters=num_clusters)
         print(f'Finished clustering into {num_clusters} clusters.')
 
@@ -81,7 +92,14 @@ class TypiClust:
         existing_indices = np.arange(len(self.lSet))
         # counting cluster sizes and number of labeled samples per cluster
         cluster_ids, cluster_sizes = np.unique(labels, return_counts=True)
-        cluster_labeled_counts = np.bincount(labels[existing_indices], minlength=len(cluster_ids))
+        # bincount requires minlength > max label value; cluster_ids may be non-consecutive
+        # (e.g. when features cover more samples than the train split), so we compute counts
+        # for all IDs 0..max and then index by the cluster_ids that are actually present.
+        full_labeled_counts = np.bincount(
+            labels[existing_indices],
+            minlength=int(labels.max()) + 1,
+        )
+        cluster_labeled_counts = full_labeled_counts[cluster_ids]
         clusters_df = pd.DataFrame({'cluster_id': cluster_ids, 'cluster_size': cluster_sizes, 'existing_count': cluster_labeled_counts,
                                     'neg_cluster_size': -1 * cluster_sizes})
         # drop too small clusters

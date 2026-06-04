@@ -45,14 +45,15 @@ class MemoryBank(object):
         return class_pred
 
     def mine_nearest_neighbors(self, topk, calculate_accuracy=True):
-        # mine the topk nearest neighbors for every sample
-        import faiss
-        features = self.features.cpu().numpy()
-        n, dim = features.shape[0], features.shape[1]
-        index = faiss.IndexFlatIP(dim)
-        index = faiss.index_cpu_to_all_gpus(index)
-        index.add(features)
-        distances, indices = index.search(features, topk+1) # Sample itself is included
+        # mine the topk nearest neighbors for every sample using Torch CUDA
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA is required for nearest-neighbor mining.")
+
+        features = self.features.cuda()
+        # Cosine similarity since features are normalized in this pipeline.
+        similarity = torch.matmul(features, features.t())
+        _, indices = torch.topk(similarity, k=topk + 1, dim=1, largest=True, sorted=True)
+        indices = indices.detach().cpu().numpy()
         
         # evaluate 
         if calculate_accuracy:

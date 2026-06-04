@@ -86,7 +86,9 @@ def load_checkpoint(checkpoint_file, model, optimizer=None):
     """Loads the checkpoint from the given file."""
     err_str = "Checkpoint '{}' not found"
     assert os.path.exists(checkpoint_file), err_str.format(checkpoint_file)
-    checkpoint = torch.load(checkpoint_file, map_location="cpu")
+    # PyTorch>=2.6 defaults torch.load(..., weights_only=True), which breaks
+    # legacy checkpoints that include non-tensor objects (e.g., numpy scalars).
+    checkpoint = torch.load(checkpoint_file, map_location="cpu", weights_only=False)
     unwrap_model(model).load_state_dict(checkpoint["model_state"])
     optimizer.load_state_dict(checkpoint["optimizer_state"]) if optimizer else ()
     return model

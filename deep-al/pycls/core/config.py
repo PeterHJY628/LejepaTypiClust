@@ -197,6 +197,10 @@ _C.ACTIVE_LEARNING.MAX_ITER = 5 # Max AL iterations
 _C.ACTIVE_LEARNING.MAX_DELTA = 1.1 # Max Delta for DCoM algorithm
 _C.ACTIVE_LEARNING.DELTA_RESOLUTION = 0.05 # Delta resolution for the binary search in DCoM algorithm
 _C.ACTIVE_LEARNING.FINE_TUNE = True # continue after AL from existing model or from scratch
+# If set, this seed is used to locate pre-extracted feature .npy files instead of RNG_SEED.
+# Useful when you want all AL seeds to share the same pre-trained embedding (e.g. only seed 1
+# SimCLR is available but you still want to run AL with seeds 1-10).
+_C.ACTIVE_LEARNING.FEATURE_SEED = None
 
 # ---------------------------------------------------------------------------- #
 # Common train/test data loader options
@@ -228,7 +232,8 @@ _C.DATASET.VAL_RATIO = 0.1
 # Data augmentation methods - 'simclr', 'randaug', 'hflip'
 _C.DATASET.AUG_METHOD = 'hflip' 
 # Accepted Datasets
-_C.DATASET.ACCEPTED = ['MNIST','SVHN','CIFAR10','CIFAR100','TINYIMAGENET', 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100', 'IMAGENET50', 'IMAGENET100', 'IMAGENET200']
+_C.DATASET.ACCEPTED = ['MNIST','SVHN','CIFAR10','CIFAR100','TINYIMAGENET', 'IMBALANCED_CIFAR10', 'IMBALANCED_CIFAR100', 'IMAGENET50', 'IMAGENET100', 'IMAGENET200', 'ISIC2019',
+                       'PATHMNIST', 'BLOODMNIST', 'ORGANAMNIST', 'CHESTMNIST', 'DERMAMNIST', 'RETINAMNIST']
 
 def assert_cfg():
     """Checks config values invariants."""

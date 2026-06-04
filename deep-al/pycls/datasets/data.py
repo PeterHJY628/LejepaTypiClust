@@ -12,7 +12,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from .randaugment import RandAugmentPolicy
 from .simclr_augment import get_simclr_ops
 import pycls.utils.logging as lu
-from pycls.datasets.custom_datasets import CIFAR10, CIFAR100, MNIST, SVHN
+from pycls.datasets.custom_datasets import CIFAR10, CIFAR100, MNIST, SVHN, ISIC2019, MedMNISTDataset, MEDMNIST_META
 from pycls.datasets.imbalanced_cifar import IMBALANCECIFAR10, IMBALANCECIFAR100
 from pycls.datasets.sampler import IndexedSequentialSampler
 from pycls.datasets.tiny_imagenet import TinyImageNet
@@ -141,6 +141,16 @@ class Data:
                 # Using ImageNet values
                 norm_mean = [0.485, 0.456, 0.406]
                 norm_std = [0.229, 0.224, 0.225]
+            elif self.dataset == "ISIC2019":
+                ops = [transforms.RandomResizedCrop(224, scale=(0.5, 1.0))]
+                # Using ImageNet normalization as common practice for dermoscopy pipelines.
+                norm_mean = [0.485, 0.456, 0.406]
+                norm_std = [0.229, 0.224, 0.225]
+            elif self.dataset in MEDMNIST_META:
+                # Native 28×28; random crop with padding mirrors CIFAR practice.
+                ops = [transforms.Resize(32), transforms.RandomCrop(28, padding=2)]
+                norm_mean = [0.5, 0.5, 0.5]
+                norm_std = [0.5, 0.5, 0.5]
             elif self.dataset in ["SVHN"]:
                 ops = [transforms.RandomCrop(32, padding=4)]
                 norm_mean = [0.4376, 0.4437, 0.4728]
@@ -241,6 +251,34 @@ class Data:
                 imagenet = ImageNet(save_dir, split='val', transform=preprocess_steps, test_transform=test_preprocess_steps,
                                       num_classes=self.cfg.MODEL.NUM_CLASSES, only_features=only_features)
             return imagenet, len(imagenet)
+        elif self.dataset == "ISIC2019":
+            split = "train" if isTrain else "test"
+            only_features = self.cfg.MODEL.LINEAR_FROM_FEATURES
+            # Respect FEATURE_SEED if set, otherwise fall back to RNG_SEED
+            al_cfg = getattr(self.cfg, 'ACTIVE_LEARNING', None)
+            feature_seed = (
+                getattr(al_cfg, 'FEATURE_SEED', None) or self.cfg.RNG_SEED
+            )
+            isic = ISIC2019(
+                save_dir, split=split,
+                transform=preprocess_steps,
+                test_transform=test_preprocess_steps,
+                only_features=only_features,
+                feature_seed=int(feature_seed),
+            )
+            return isic, len(isic)
+
+        elif self.dataset in MEDMNIST_META:
+            split = "train" if isTrain else "test"
+            ds = MedMNISTDataset(
+                dataset_name=self.dataset,
+                root=save_dir,
+                split=split,
+                transform=preprocess_steps,
+                test_transform=test_preprocess_steps,
+                download=isDownload,
+            )
+            return ds, len(ds)
 
         elif self.dataset == 'IMBALANCED_CIFAR10':
             im_cifar10 = IMBALANCECIFAR10(save_dir, train=isTrain, transform=preprocess_steps, test_transform=test_preprocess_steps)

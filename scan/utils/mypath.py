@@ -8,7 +8,8 @@ import os
 class MyPath(object):
     @staticmethod
     def db_root_dir(database=''):
-        db_names = {'cifar-10', 'stl-10', 'cifar-100', 'imagenet', 'imagenet_50', 'imagenet_100', 'imagenet_200'}
+        db_names = {'cifar-10', 'stl-10', 'cifar-100', 'imagenet', 'imagenet_50', 'imagenet_100', 'imagenet_200',
+                    'isic2019'}
         assert(database in db_names)
 
         if database == 'cifar-10':
@@ -22,6 +23,9 @@ class MyPath(object):
         
         elif database in ['imagenet', 'imagenet_50', 'imagenet_100', 'imagenet_200']:
             return './datasets/imagenet/'
-        
+
+        elif database == 'isic2019':
+            return '../data/isic2019/'
+
         else:
             raise NotImplementedError
