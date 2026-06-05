@@ -52,6 +52,17 @@ def load_features(ds_name, seed=1, train=True, normalized=True, source='simclr')
             },
         }
         fname = fname_dict[split][ds_name].format(seed=seed)
+    elif source == 'dinov2':
+        split = "train" if train else "test"
+        fname_dict = {
+            "train": {
+                "CIFAR10": "../../scan/results/cifar-10/dinov2/features_seed{seed}.npy",
+            },
+            "test": {
+                "CIFAR10": "../../scan/results/cifar-10/dinov2/test_features_seed{seed}.npy",
+            },
+        }
+        fname = fname_dict[split][ds_name].format(seed=seed)
     else:
         split = "train" if train else "test"
         fname = DATASET_FEATURES_DICT[split][ds_name].format(seed=seed)

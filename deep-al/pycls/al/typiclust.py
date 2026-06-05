@@ -79,7 +79,12 @@ class TypiClust:
             self.features = np.load(fname)
             self.clusters = np.load(fname.replace('features', 'probs')).argmax(axis=-1)
         else:
-            feature_source = 'lejepa' if self.cfg.ACTIVE_LEARNING.SAMPLING_FN == 'typiclust_lejepa' else 'simclr'
+            if self.cfg.ACTIVE_LEARNING.SAMPLING_FN == 'typiclust_lejepa':
+                feature_source = 'lejepa'
+            elif self.cfg.ACTIVE_LEARNING.SAMPLING_FN == 'typiclust_dinov2':
+                feature_source = 'dinov2'
+            else:
+                feature_source = 'simclr'
             self.features = ds_utils.load_features(self.ds_name, self.feature_seed, source=feature_source)
             self.clusters = kmeans(self.features, num_clusters=num_clusters)
         print(f'Finished clustering into {num_clusters} clusters.')
