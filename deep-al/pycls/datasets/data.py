@@ -213,17 +213,30 @@ class Data:
         preprocess_steps = transforms.Compose(preprocess_steps)
 
         only_features = self.cfg.MODEL.LINEAR_FROM_FEATURES
+        al_fn = getattr(self.cfg.ACTIVE_LEARNING, "SAMPLING_FN", "")
+        if al_fn == "typiclust_lejepa":
+            feature_source = "lejepa"
+        elif al_fn == "typiclust_dinov2":
+            feature_source = "dinov2"
+        else:
+            feature_source = "simclr"
 
         if self.dataset == "MNIST":
             mnist = MNIST(save_dir, train=isTrain, transform=preprocess_steps, test_transform=test_preprocess_steps, download=isDownload)
             return mnist, len(mnist)
 
         elif self.dataset == "CIFAR10":
-            cifar10 = CIFAR10(save_dir, train=isTrain, transform=preprocess_steps, test_transform=test_preprocess_steps, download=isDownload, only_features=only_features)
+            cifar10 = CIFAR10(
+                save_dir, train=isTrain, transform=preprocess_steps, test_transform=test_preprocess_steps,
+                download=isDownload, only_features=only_features, feature_source=feature_source
+            )
             return cifar10, len(cifar10)
 
         elif self.dataset == "CIFAR100":
-            cifar100 = CIFAR100(save_dir, train=isTrain, transform=preprocess_steps,  test_transform=test_preprocess_steps, download=isDownload, only_features=only_features)
+            cifar100 = CIFAR100(
+                save_dir, train=isTrain, transform=preprocess_steps, test_transform=test_preprocess_steps,
+                download=isDownload, only_features=only_features, feature_source=feature_source
+            )
             return cifar100, len(cifar100)
 
         elif self.dataset == "SVHN":
